@@ -2,7 +2,7 @@
 
 Speak a craving — cultures, a format, even just a feeling — and Fusion Plate invents an original recipe on the spot: full ingredients, real quantities and oven temps, step-by-step instructions, an AI-generated picture of the plate, and voice-driven ingredient substitutions if you're missing something.
 
-**Live app:** _(added after first deploy)_
+**Live app:** https://fusion-plate.vercel.app
 
 ## How it works
 
