@@ -393,8 +393,8 @@ Respond with ONLY raw JSON, no markdown fences: {"note":string,"swaps":[{"origin
   // ---------------------------------------------------------------------
   // API key handling
   // ---------------------------------------------------------------------
-  function getKey(){ try { return localStorage.getItem(KEY_STORAGE) || ''; } catch(e){ return ''; } }
-  function setKey(k){ try { localStorage.setItem(KEY_STORAGE, k); } catch(e){} }
+  function getKey(){ try { return (localStorage.getItem(KEY_STORAGE) || '').trim(); } catch(e){ return ''; } }
+  function setKey(k){ try { localStorage.setItem(KEY_STORAGE, k.trim()); } catch(e){} }
   function clearKey(){ try { localStorage.removeItem(KEY_STORAGE); } catch(e){} }
 
   function openModal(el){ el.classList.remove('hidden'); el.classList.add('flex'); }
@@ -418,6 +418,9 @@ Respond with ONLY raw JSON, no markdown fences: {"note":string,"swaps":[{"origin
   });
   $('clearKeyBtn').addEventListener('click', () => {
     clearKey(); apiKeyInput.value = ''; keyStatus.textContent = 'Key cleared.';
+  });
+  apiKeyInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter'){ e.preventDefault(); $('saveKeyBtn').click(); }
   });
 
   // ---------------------------------------------------------------------
@@ -821,6 +824,7 @@ Respond with ONLY raw JSON, no markdown fences: {"note":string,"swaps":[{"origin
     if (msg === 'BAD_KEY') return 'That API key was rejected — double check it in settings.';
     if (msg === 'PARSE_FAILED') return 'The response got garbled — tap try again.';
     if (err && err.name === 'AbortError') return 'Cancelled.';
+    if (msg) return `Claude said: "${msg}" — tap try again.`;
     return 'Something went sideways talking to Claude — tap try again.';
   }
 
@@ -838,8 +842,7 @@ Respond with ONLY raw JSON, no markdown fences: {"note":string,"swaps":[{"origin
       pushHistory(recipe, imageUrl);
     } catch(err){
       stopLoading();
-      if (err.message !== 'NO_KEY') renderError(friendlyError(err));
-      else resultZone.classList.add('hidden');
+      renderError(friendlyError(err));
     } finally {
       submitBtn.disabled = false;
     }
