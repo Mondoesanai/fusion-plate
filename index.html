@@ -577,6 +577,10 @@ Respond with ONLY raw JSON, no markdown fences: {"note":string,"swaps":[{"origin
         model: MODEL,
         max_tokens: maxTokens,
         system: system,
+        // Sonnet 5 thinks by default — keep it on (disabling it can make the
+        // model leak stray text) but hold it to low effort since this is a
+        // simple structured-output task, not deep reasoning.
+        output_config: { effort: 'low' },
         messages: [{ role: 'user', content: userText }]
       })
     });
@@ -588,7 +592,22 @@ Respond with ONLY raw JSON, no markdown fences: {"note":string,"swaps":[{"origin
       throw new Error(detail || ('HTTP_' + res.status));
     }
     const data = await res.json();
-    const text = (data.content && data.content[0] && data.content[0].text) || '';
+
+    if (data.stop_reason === 'refusal'){
+      throw new Error((data.stop_details && data.stop_details.explanation) || 'Claude declined that one — try rephrasing.');
+    }
+
+    // content is an array of blocks (thinking, text, ...) — thinking is on
+    // by default for this model, so the text block is NOT always content[0].
+    // Concatenate every text-type block and ignore the rest.
+    const text = (data.content || [])
+      .filter((b) => b && b.type === 'text')
+      .map((b) => b.text)
+      .join('');
+
+    if (!text && data.stop_reason === 'max_tokens'){
+      throw new Error('The response got cut off before finishing — try again, it usually fits.');
+    }
     return parseJsonLoose(text);
   }
 
@@ -770,7 +789,7 @@ Respond with ONLY raw JSON, no markdown fences: {"note":string,"swaps":[{"origin
       try {
         const ingredientList = (currentRecipe.ingredients || []).map(i => `${i.amount || ''} ${i.item}`).join(', ');
         const userMsg = `Recipe: "${currentRecipe.title}"\nCurrent ingredients: ${ingredientList}\n\nUser says: "${text}"`;
-        const data = await callClaude(SUBSTITUTION_SYSTEM_PROMPT, userMsg, 900);
+        const data = await callClaude(SUBSTITUTION_SYSTEM_PROMPT, userMsg, 1500);
         const swapsHtml = (data.swaps || []).map(s =>
           `<li class="text-[14px] py-2 border-b border-ink/8">
             <span class="font-semibold">${escapeHtml(s.original)}</span> → <span class="text-brand-dark font-semibold">${escapeHtml(s.substitute)}</span>
@@ -835,7 +854,7 @@ Respond with ONLY raw JSON, no markdown fences: {"note":string,"swaps":[{"origin
 
     try {
       const userMsg = vegan ? `${text}\n\n(Must be entirely vegan.)` : text;
-      const recipe = await callClaude(RECIPE_SYSTEM_PROMPT, userMsg, 1700);
+      const recipe = await callClaude(RECIPE_SYSTEM_PROMPT, userMsg, 3000);
       const imageUrl = imageUrlFor(recipe.image_prompt || recipe.title || text);
       stopLoading();
       renderRecipe(recipe, imageUrl);
